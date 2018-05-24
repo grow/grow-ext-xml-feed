@@ -100,14 +100,14 @@ class XmlFeedPreprocessHook(hooks.PreprocessHook):
                 """\
                 $title: {}
                 $description: {}
-                """.format(article.title, article.description))
+                """.rstrip()).format(article.title, article.description)
 
             raw_content = textwrap.dedent(
                 """\
                 {}
                 ---
                 {}
-                """.format(raw_front_matter, article.content))
+                """).format(raw_front_matter, article.content)
 
             self.pod.logger.info('Saving {}'.format(pod_path))
             self.pod.write_file(pod_path, raw_content)
