@@ -13,5 +13,7 @@ setup(
     packages=[
         'xml_feed',
     ],
-    install_requires=[],
+    install_requires=[
+        'protorpc==0.11.1',
+    ],
 )
