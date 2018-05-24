@@ -14,6 +14,8 @@ setup(
         'xml_feed',
     ],
     install_requires=[
+        'python-dateutil>=2.7.3',
         'protorpc==0.11.1',
+        'requests>=2.18.4',
     ],
 )
