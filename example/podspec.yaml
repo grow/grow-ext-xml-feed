@@ -1,0 +1,5 @@
+localization:
+  default_locale: en
+
+ext:
+- extensions.xml_feed.XmlFeedExtension

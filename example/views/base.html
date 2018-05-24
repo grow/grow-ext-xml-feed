@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>{{doc.title}}</title>
+<body>
+  {% include "/partials/header/header.html" %}
+  <div class="wrapper">
+    {% block main %}
+      {% if doc.partials %}
+        {% for field in doc.partials %}
+          {% if not field.partial %}
+            {% continue %}
+          {% endif %}
+
+          {# Render the partial with the values in {{partial}}. #}
+          {% set partial_filename = field.partial|expand_partial %}
+          {% with partial = field %}
+            {% include partial_filename with context %}
+          {% endwith %}
+        {% endfor %}
+      {% else %}
+        {{doc.html|safe}}
+      {% endif %}
+    {% endblock %}
+  </div>
+  {% include "/partials/footer/footer.html" %}

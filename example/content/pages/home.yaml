@@ -1,0 +1,6 @@
+$title@: Homepage
+description@: Welcome to the homepage.
+partials:
+- partial: hero
+  title: Title for Hero
+  subtitle: Subtitle for Hero
