@@ -5,11 +5,15 @@ from grow.documents import document
 from grow.extensions import hooks
 
 
-class XmlFeedPostRenderHook(hooks.PostRenderHook):
-    """Handle the post-render hook."""
+class XmlFeedPreprocessHook(hooks.PreprocessHook):
+    """Handle the preprocess hook."""
 
-    def trigger(self, previous_result, doc, raw_content, *_args, **_kwargs):
-        """Execute post-render modification."""
+    KIND = 'xml_feed'
+
+    def trigger(self, previous_result, config, names, tags, run_all, rate_limit,
+                *_args, **_kwargs):
+        """Execute preprocessing."""
+        print 'Triggered xml feed preprocessing'
         return previous_result
 
 
@@ -19,4 +23,4 @@ class XmlFeedExtension(extensions.BaseExtension):
     @property
     def available_hooks(self):
         """Returns the available hook classes."""
-        return [XmlFeedPostRenderHook]
+        return [XmlFeedPreprocessHook]

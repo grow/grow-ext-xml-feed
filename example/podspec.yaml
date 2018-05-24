@@ -3,3 +3,7 @@ localization:
 
 ext:
 - extensions.xml_feed.XmlFeedExtension
+
+preprocessors:
+- name: feed
+  kind: xml_feed
