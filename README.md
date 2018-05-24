@@ -20,8 +20,18 @@ ext:
 
 ```
 preprocessors:
-- name: feed
+- name: my_feed
   kind: xml_feed
+  autorun: false
   url: https://www.blog.google/rss/
   collection: /content/feed/
+  tags:
+  - feed
 ```
+
+### Importing feed
+
+To run the feed import run `grow preprocess -p my_feed`.
+
+Alternatively you can use tags in the preprocessor configuration and run all of
+the `feed` tagged preprocessors at the same time using `grow preprocess -t feed`.
