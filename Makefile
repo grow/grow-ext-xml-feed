@@ -3,5 +3,5 @@ PATH := $(PATH):$(HOME)/bin
 
 test:
 	grow install example
-	grow preprocess
+	grow preprocess example
 	grow build example

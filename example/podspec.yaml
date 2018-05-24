@@ -7,3 +7,5 @@ ext:
 preprocessors:
 - name: feed
   kind: xml_feed
+  url: https://google.com
+  collection: /content/feed/
