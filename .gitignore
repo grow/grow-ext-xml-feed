@@ -4,4 +4,5 @@ example/.grow/
 example/build/
 example/extensions/
 example/env/
+example/content/feed/
 lib
