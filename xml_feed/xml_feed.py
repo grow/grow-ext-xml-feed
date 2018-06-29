@@ -2,6 +2,7 @@
 
 import requests
 import textwrap
+from bs4 import BeautifulSoup as BS
 from datetime import datetime
 from dateutil.parser import parse
 from protorpc import messages
@@ -17,6 +18,7 @@ class Article(object):
     def __init__(self):
         self.title = None
         self.description = None
+        self.image = None
         self.link = None
         self.content = None
         self.fields = {}
@@ -49,6 +51,7 @@ class XmlFeedPreprocessHook(hooks.PreprocessHook):
     @staticmethod
     def _parse_articles_rss(root):
         used_titles = set()
+        content_key = '{http://purl.org/rss/1.0/modules/content/}encoded'
 
         for item in root.findall('./channel/item'):
             article = Article()
@@ -66,6 +69,8 @@ class XmlFeedPreprocessHook(hooks.PreprocessHook):
                     raw_date = child.text.encode('utf8')
                     article.published = datetime.strftime(
                         parse(raw_date), '%Y-%m-%d %H:%M:%S.%f')
+                if child.tag == content_key:
+                    article.content = child.text.encode('utf8')
                 elif child.text:
                     article.fields[child.tag] = child.text.encode('utf8')
 
@@ -81,6 +86,13 @@ class XmlFeedPreprocessHook(hooks.PreprocessHook):
                     slug = alt_slug
 
                 article.slug = slug
+
+            if article.content:
+                soup_article_content = BS(article.content, "html.parser")
+                soup_article_image = soup_article_content.find('img')
+
+            if soup_article_image:
+                article.image = soup_article_image['src']
 
             yield article
 
@@ -100,7 +112,9 @@ class XmlFeedPreprocessHook(hooks.PreprocessHook):
                 """\
                 $title: {}
                 $description: {}
-                """.rstrip()).format(article.title, article.description)
+                image: {}
+                """.rstrip()).format(
+                    article.title, article.description, article.image)
 
             raw_content = textwrap.dedent(
                 """\
