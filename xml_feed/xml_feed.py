@@ -11,6 +11,13 @@ from grow import extensions
 from grow.common import utils
 from grow.extensions import hooks
 
+CONTENT_KEYS = [
+    'title',
+    'description',
+    'link',
+    'pubDate',
+    '{http://purl.org/rss/1.0/modules/content/}encoded'
+]
 
 class Article(object):
     """Article details from the field."""
@@ -51,28 +58,28 @@ class XmlFeedPreprocessHook(hooks.PreprocessHook):
     @staticmethod
     def _parse_articles_rss(root):
         used_titles = set()
-        content_key = '{http://purl.org/rss/1.0/modules/content/}encoded'
 
         for item in root.findall('./channel/item'):
             article = Article()
 
             for child in item:
-                if child.tag == 'title':
-                    article.title = child.text.encode('utf8')
-                if child.tag == 'description':
-                    article.description = child.text.encode('utf8')
-                if child.tag == 'link':
-                    article.link = child.text.encode('utf8')
-                if child.tag == 'description':
-                    article.content = child.text.encode('utf8')
-                if child.tag == 'pubDate':
-                    raw_date = child.text.encode('utf8')
-                    article.published = datetime.strftime(
-                        parse(raw_date), '%Y-%m-%d %H:%M:%S.%f')
-                if child.tag == content_key:
-                    article.content = child.text.encode('utf8')
-                elif child.text:
-                    article.fields[child.tag] = child.text.encode('utf8')
+                if child.tag in CONTENT_KEYS:
+                    if child.tag == CONTENT_KEYS[0]:
+                        article.title = child.text.encode('utf8')
+                    if child.tag == CONTENT_KEYS[1]:
+                        article.description = child.text.encode('utf8')
+                    if child.tag == CONTENT_KEYS[2]:
+                        article.link = child.text.encode('utf8')
+                    if child.tag == CONTENT_KEYS[1]:
+                        article.content = child.text.encode('utf8')
+                    if child.tag == CONTENT_KEYS[3]:
+                        raw_date = child.text.encode('utf8')
+                        article.published = datetime.strftime(
+                            parse(raw_date), '%Y-%m-%d %H:%M:%S.%f')
+                    if child.tag == CONTENT_KEYS[4]:
+                        article.content = child.text.encode('utf8')
+                    elif child.text:
+                        article.fields[child.tag] = child.text.encode('utf8')
 
             if article.title:
                 slug = utils.slugify(article.title)
