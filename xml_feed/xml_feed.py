@@ -97,8 +97,8 @@ class XmlFeedPreprocessHook(hooks.PreprocessHook):
                 soup_article_content = BS(article.content, "html.parser")
                 soup_article_image = soup_article_content.find('img')
 
-            if soup_article_image:
-                article.image = soup_article_image['src']
+                if soup_article_image:
+                    article.image = soup_article_image['src']
 
             yield article
 
