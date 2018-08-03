@@ -119,8 +119,14 @@ class XmlFeedPreprocessHook(hooks.PreprocessHook):
                 $title: {}
                 $description: {}
                 image: {}
+                published: {}
+                link: {}
                 """.rstrip()).format(
-                    article.title, article.description, article.image)
+                    article.title,
+                    article.description,
+                    article.image,
+                    article.published,
+                    article.link)
 
             raw_content = textwrap.dedent(
                 """\
