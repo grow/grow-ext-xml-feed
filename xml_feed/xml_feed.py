@@ -1,12 +1,14 @@
 """Xml feed extension for importing xml feeds into Grow documents."""
 
-import requests
+import datetime
 import textwrap
+import time
+import feedparser
+import tomd
 from bs4 import BeautifulSoup as BS
 from datetime import datetime
 from dateutil.parser import parse
 from protorpc import messages
-from xml.etree import ElementTree as ET
 from grow import extensions
 from grow.common import structures
 from grow.common import utils
@@ -43,42 +45,23 @@ class XmlFeedPreprocessHook(hooks.PreprocessHook):
         collection = messages.StringField(2)
 
     @staticmethod
-    def _download_feed(url):
-        return requests.get(url).content
-
-    @classmethod
-    def _parse_articles(cls, raw_feed):
-        root = ET.fromstring(raw_feed)
-
-        if root.tag == 'rss':
-            for article in cls._parse_articles_rss(root):
-                yield article
-        else:
-            raise ValueError('Only supports rss feeds currently.')
+    def _cleanup_yaml(value):
+        if ':' in value:
+            return '"{}"'.format(value)
+        return value
 
     @staticmethod
-    def _parse_articles_rss(root):
+    def _parse_articles_atom(feed):
         used_titles = set()
 
-        for item in root.findall('./channel/item'):
+        for entry in feed.entries:
             article = Article()
-
-            for child in item:
-                if child.tag == CONTENT_KEYS.title:
-                    article.title = child.text.encode('utf8')
-                if child.tag == CONTENT_KEYS.description:
-                    article.description = child.text.encode('utf8')
-                    article.content = child.text.encode('utf8')
-                if child.tag == CONTENT_KEYS.link:
-                    article.link = child.text.encode('utf8')
-                if child.tag == CONTENT_KEYS.published:
-                    raw_date = child.text.encode('utf8')
-                    article.published = datetime.strftime(
-                        parse(raw_date), '%Y-%m-%d %H:%M:%S.%f')
-                if child.tag == CONTENT_KEYS.content_encoded:
-                    article.content = child.text.encode('utf8')
-                elif child.text:
-                    article.fields[child.tag] = child.text.encode('utf8')
+            article.title = entry.title.encode('utf-8')
+            if entry.summary != entry.content[0].value:
+                article.description = entry.summary.encode('utf-8')
+            article.content = entry.content[0].value.encode('utf-8')
+            article.link = entry.link
+            article.published = entry.published_parsed
 
             if article.title:
                 slug = utils.slugify(article.title)
@@ -95,12 +78,71 @@ class XmlFeedPreprocessHook(hooks.PreprocessHook):
 
             if article.content:
                 soup_article_content = BS(article.content, "html.parser")
+                article.content = soup_article_content.prettify().encode('utf-8')
                 soup_article_image = soup_article_content.find('img')
 
                 if soup_article_image:
                     article.image = soup_article_image['src']
 
+            if not article.description:
+                article.description = article.title
+
             yield article
+
+    @staticmethod
+    def _parse_articles_rss(feed):
+        used_titles = set()
+
+        for entry in feed.entries:
+            article = Article()
+            article.title = entry.title.encode('utf-8')
+            # article.description = entry.summary.encode('utf-8')
+            article.content = entry.summary.encode('utf-8')
+            article.link = entry.link
+            article.published = entry.published_parsed
+
+            if article.title:
+                slug = utils.slugify(article.title)
+
+                if slug in used_titles:
+                    index = 1
+                    alt_slug = slug
+                    while alt_slug in used_titles:
+                        alt_slug = '{}-{}'.format(slug, index)
+                        index = index + 1
+                    slug = alt_slug
+
+                article.slug = slug
+
+            if article.content:
+                soup_article_content = BS(article.content, "html.parser")
+                # article.content = soup_article_content.get_text().encode('utf-8')
+                article.content = soup_article_content.prettify().encode('utf-8')
+                # article.content = tomd.convert(soup_article_content.prettify().encode('utf-8'))
+                soup_article_image = soup_article_content.find('img')
+
+                if soup_article_image:
+                    article.image = soup_article_image['src']
+
+            if not article.description:
+                article.description = article.title
+
+            yield article
+
+    @classmethod
+    def _parse_feed(cls, feed_url):
+        feed = feedparser.parse(feed_url)
+
+        print feed.version
+
+        if feed.version == 'atom10':
+            for article in cls._parse_articles_atom(feed):
+                yield article
+        elif feed.version == 'rss20':
+            for article in cls._parse_articles_rss(feed):
+                yield article
+        else:
+            raise ValueError('Feed importer only supports rss and atom feeds.')
 
     def trigger(self, previous_result, config, names, tags, run_all, rate_limit,
                 *_args, **_kwargs):
@@ -110,27 +152,32 @@ class XmlFeedPreprocessHook(hooks.PreprocessHook):
 
         config = self.parse_config(config)
 
-        raw_feed = self._download_feed(config.url)
-        for article in self._parse_articles(raw_feed):
-            pod_path = '{}{}.html'.format(config.collection, article.slug)
+        for article in self._parse_feed(config.url):
+            article_datetime = datetime.fromtimestamp(time.mktime(article.published))
+            pod_path = '{}/md/{}/{}.fm'.format(config.collection, article_datetime.year, article.slug)
+            pod_path_md = '{}/md/{}/{}.md'.format(config.collection, article_datetime.year, article.slug)
 
             raw_front_matter = textwrap.dedent(
                 """\
                 $title: {}
                 $description: {}
+                $date: {}
                 image: {}
                 """.rstrip()).format(
-                    article.title, article.description, article.image)
+                    self._cleanup_yaml(article.title),
+                    self._cleanup_yaml(article.description),
+                    article_datetime.strftime('%Y-%m-%d'),
+                    article.image)
 
             raw_content = textwrap.dedent(
                 """\
                 {}
                 ---
-                {}
-                """).format(raw_front_matter, article.content)
+                """).format(raw_front_matter)
 
             self.pod.logger.info('Saving {}'.format(pod_path))
             self.pod.write_file(pod_path, raw_content)
+            self.pod.write_file(pod_path_md, article.content)
 
         return previous_result
 
