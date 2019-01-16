@@ -1,5 +1,6 @@
 """Xml feed extension for importing xml feeds into Grow documents."""
 
+import collections
 import requests
 import textwrap
 import yaml
@@ -11,6 +12,7 @@ from xml.etree import ElementTree as ET
 from grow import extensions
 from grow.common import structures
 from grow.common import utils
+from grow.common import yaml_utils
 from grow.extensions import hooks
 
 CONTENT_KEYS = structures.AttributeDict({
@@ -67,16 +69,15 @@ class XmlFeedPreprocessHook(hooks.PreprocessHook):
             for child in item:
                 if child.tag == CONTENT_KEYS.title:
                     article.title = child.text.encode('utf8')
-                if child.tag == CONTENT_KEYS.description:
+                elif child.tag == CONTENT_KEYS.description:
                     article.description = child.text.encode('utf8')
                     article.content = child.text.encode('utf8')
-                if child.tag == CONTENT_KEYS.link:
+                elif child.tag == CONTENT_KEYS.link:
                     article.link = child.text.encode('utf8')
-                if child.tag == CONTENT_KEYS.published:
+                elif child.tag == CONTENT_KEYS.published:
                     raw_date = child.text.encode('utf8')
-                    article.published = datetime.strftime(
-                        parse(raw_date), '%Y-%m-%d %H:%M:%S.%f')
-                if child.tag == CONTENT_KEYS.content_encoded:
+                    article.published = parse(raw_date)
+                elif child.tag == CONTENT_KEYS.content_encoded:
                     article.content = child.text.encode('utf8')
                 elif child.text:
                     article.fields[child.tag] = child.text.encode('utf8')
@@ -114,15 +115,14 @@ class XmlFeedPreprocessHook(hooks.PreprocessHook):
         raw_feed = self._download_feed(config.url)
         for article in self._parse_articles(raw_feed):
             pod_path = '{}{}.html'.format(config.collection, article.slug)
-
+            data = collections.OrderedDict()
+            data['$title'] = article.title
+            data['$description'] = article.description
+            data['image'] = article.image
+            data['published'] = article.published
+            data['link'] = article.link
             raw_front_matter = yaml.dump(
-                {
-                    '$title': article.title,
-                    '$description': article.description,
-                    'image': article.image,
-                    'published': str(article.published),
-                    'link': article.link,
-                },
+                data, Dumper=yaml_utils.PlainTextYamlDumper,
                 default_flow_style=False, allow_unicode=True, width=800)
 
             raw_content = textwrap.dedent(
