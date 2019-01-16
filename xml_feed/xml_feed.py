@@ -2,6 +2,7 @@
 
 import requests
 import textwrap
+import yaml
 from datetime import datetime
 from dateutil.parser import parse
 from protorpc import messages
@@ -96,11 +97,12 @@ class XmlFeedPreprocessHook(hooks.PreprocessHook):
         for article in self._parse_articles(raw_feed):
             pod_path = '{}{}.html'.format(config.collection, article.slug)
 
-            raw_front_matter = textwrap.dedent(
-                """\
-                $title: {}
-                $description: {}
-                """.rstrip()).format(article.title, article.description)
+            raw_front_matter = yaml.dump(
+                {
+                    '$title': article.title,
+                    '$description': article.description,
+                },
+                default_flow_style=False, allow_unicode=True, width=800)
 
             raw_content = textwrap.dedent(
                 """\
