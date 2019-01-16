@@ -5,4 +5,5 @@ example/build/
 example/extensions/
 example/env/
 example/content/feed/
+example/content/medium_feed/
 lib

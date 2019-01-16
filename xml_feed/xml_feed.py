@@ -2,15 +2,27 @@
 
 import requests
 import textwrap
+<<<<<<< HEAD
 import yaml
+=======
+from bs4 import BeautifulSoup as BS
+>>>>>>> 89a29daa8e059647e619e286215943014cdbe1f3
 from datetime import datetime
 from dateutil.parser import parse
 from protorpc import messages
 from xml.etree import ElementTree as ET
 from grow import extensions
+from grow.common import structures
 from grow.common import utils
 from grow.extensions import hooks
 
+CONTENT_KEYS = structures.AttributeDict({
+    'title': 'title',
+    'description': 'description',
+    'link': 'link',
+    'published': 'pubDate',
+    'content_encoded': '{http://purl.org/rss/1.0/modules/content/}encoded',
+})
 
 class Article(object):
     """Article details from the field."""
@@ -18,6 +30,7 @@ class Article(object):
     def __init__(self):
         self.title = None
         self.description = None
+        self.image = None
         self.link = None
         self.content = None
         self.fields = {}
@@ -55,18 +68,19 @@ class XmlFeedPreprocessHook(hooks.PreprocessHook):
             article = Article()
 
             for child in item:
-                if child.tag == 'title':
+                if child.tag == CONTENT_KEYS.title:
                     article.title = child.text.encode('utf8')
-                if child.tag == 'description':
+                if child.tag == CONTENT_KEYS.description:
                     article.description = child.text.encode('utf8')
-                if child.tag == 'link':
-                    article.link = child.text.encode('utf8')
-                if child.tag == 'description':
                     article.content = child.text.encode('utf8')
-                if child.tag == 'pubDate':
+                if child.tag == CONTENT_KEYS.link:
+                    article.link = child.text.encode('utf8')
+                if child.tag == CONTENT_KEYS.published:
                     raw_date = child.text.encode('utf8')
                     article.published = datetime.strftime(
                         parse(raw_date), '%Y-%m-%d %H:%M:%S.%f')
+                if child.tag == CONTENT_KEYS.content_encoded:
+                    article.content = child.text.encode('utf8')
                 elif child.text:
                     article.fields[child.tag] = child.text.encode('utf8')
 
@@ -82,6 +96,13 @@ class XmlFeedPreprocessHook(hooks.PreprocessHook):
                     slug = alt_slug
 
                 article.slug = slug
+
+            if article.content:
+                soup_article_content = BS(article.content, "html.parser")
+                soup_article_image = soup_article_content.find('img')
+
+                if soup_article_image:
+                    article.image = soup_article_image['src']
 
             yield article
 
@@ -101,6 +122,9 @@ class XmlFeedPreprocessHook(hooks.PreprocessHook):
                 {
                     '$title': article.title,
                     '$description': article.description,
+                    'image': article.image,
+                    'published': article.published,
+                    'link': article.link,
                 },
                 default_flow_style=False, allow_unicode=True, width=800)
 
