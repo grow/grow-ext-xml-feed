@@ -2,11 +2,8 @@
 
 import requests
 import textwrap
-<<<<<<< HEAD
 import yaml
-=======
 from bs4 import BeautifulSoup as BS
->>>>>>> 89a29daa8e059647e619e286215943014cdbe1f3
 from datetime import datetime
 from dateutil.parser import parse
 from protorpc import messages
