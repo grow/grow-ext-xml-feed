@@ -120,7 +120,7 @@ class XmlFeedPreprocessHook(hooks.PreprocessHook):
                     '$title': article.title,
                     '$description': article.description,
                     'image': article.image,
-                    'published': article.published,
+                    'published': str(article.published),
                     'link': article.link,
                 },
                 default_flow_style=False, allow_unicode=True, width=800)
