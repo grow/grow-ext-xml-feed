@@ -17,6 +17,7 @@ from grow.extensions import hooks
 
 CONTENT_KEYS = structures.AttributeDict({
     'title': 'title',
+    'creator': '{http://purl.org/dc/elements/1.1/}creator',
     'description': 'description',
     'link': 'link',
     'published': 'pubDate',
@@ -28,6 +29,7 @@ class Article(object):
 
     def __init__(self):
         self.title = None
+        self.creator = None
         self.description = None
         self.image = None
         self.link = None
@@ -69,6 +71,8 @@ class XmlFeedPreprocessHook(hooks.PreprocessHook):
             for child in item:
                 if child.tag == CONTENT_KEYS.title:
                     article.title = child.text.encode('utf8')
+                elif child.tag == CONTENT_KEYS.creator:
+                    article.creator = child.text.encode('utf8')
                 elif child.tag == CONTENT_KEYS.description:
                     article.description = child.text.encode('utf8')
                     article.content = child.text.encode('utf8')
@@ -118,6 +122,7 @@ class XmlFeedPreprocessHook(hooks.PreprocessHook):
             data = collections.OrderedDict()
             data['$title'] = article.title
             data['$description'] = article.description
+            data['creator'] = article.creator
             data['image'] = article.image
             data['published'] = article.published
             data['link'] = article.link
