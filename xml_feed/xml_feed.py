@@ -17,7 +17,6 @@ from grow.extensions import hooks
 
 CONTENT_KEYS = structures.AttributeDict({
     'title': 'title',
-    'creator': '{http://purl.org/dc/elements/1.1/}creator',
     'description': 'description',
     'link': 'link',
     'published': 'pubDate',
@@ -29,12 +28,16 @@ class Article(object):
 
     def __init__(self):
         self.title = None
-        self.creator = None
         self.description = None
         self.image = None
         self.link = None
         self.content = None
         self.fields = {}
+
+
+class Options(object):
+    def __init__(self):
+        self.keys_to_field_names = {}
 
 
 class XmlFeedPreprocessHook(hooks.PreprocessHook):
@@ -52,27 +55,29 @@ class XmlFeedPreprocessHook(hooks.PreprocessHook):
         return requests.get(url).content
 
     @classmethod
-    def _parse_articles(cls, raw_feed):
+    def _parse_articles(cls, raw_feed, options):
         root = ET.fromstring(raw_feed)
 
         if root.tag == 'rss':
-            for article in cls._parse_articles_rss(root):
+            for article in cls._parse_articles_rss(root, options):
                 yield article
         else:
             raise ValueError('Only supports rss feeds currently.')
 
     @staticmethod
-    def _parse_articles_rss(root):
+    def _parse_articles_rss(root, options):
         used_titles = set()
 
         for item in root.findall('./channel/item'):
             article = Article()
 
             for child in item:
-                if child.tag == CONTENT_KEYS.title:
+                if child.tag in options.keys_to_field_names.keys():
+                    custom_field_name = options.keys_to_field_names[child.tag]
+                    value = child.text.encode('utf8')
+                    article.fields[custom_field_name] = value
+                elif child.tag == CONTENT_KEYS.title:
                     article.title = child.text.encode('utf8')
-                elif child.tag == CONTENT_KEYS.creator:
-                    article.creator = child.text.encode('utf8')
                 elif child.tag == CONTENT_KEYS.description:
                     article.description = child.text.encode('utf8')
                     article.content = child.text.encode('utf8')
@@ -114,18 +119,26 @@ class XmlFeedPreprocessHook(hooks.PreprocessHook):
         if not config['collection'].endswith('/'):
             config['collection'] = '{}/'.format(config['collection'])
 
-        config = self.parse_config(config)
+        options = Options()
+        if 'custom_field_names' in config:
+            options.keys_to_field_names = dict(
+                (v,k) for k,v in config['custom_field_names'].iteritems())
 
-        raw_feed = self._download_feed(config.url)
-        for article in self._parse_articles(raw_feed):
-            pod_path = '{}{}.html'.format(config.collection, article.slug)
+        config_message = self.parse_config(config)
+
+        raw_feed = self._download_feed(config_message.url)
+        for article in self._parse_articles(raw_feed, options):
+            pod_path = '{}{}.html'.format(config_message.collection, article.slug)
             data = collections.OrderedDict()
             data['$title'] = article.title
             data['$description'] = article.description
-            data['creator'] = article.creator
             data['image'] = article.image
             data['published'] = article.published
             data['link'] = article.link
+
+            for field_name in options.keys_to_field_names.values():
+                data[field_name] = article.fields[field_name]
+
             raw_front_matter = yaml.dump(
                 data, Dumper=yaml_utils.PlainTextYamlDumper,
                 default_flow_style=False, allow_unicode=True, width=800)
