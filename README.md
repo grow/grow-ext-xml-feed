@@ -51,7 +51,10 @@ preprocessors:
 ```
 
 In the resulting HTML files the `foo` and `dc:creator` information would be
-stored under `custom_foo_field_name` and `creator` keys. 
+stored under `custom_foo_field_name` and `creator` keys.
+
+These custom field names can be used to alias or override default field names
+and map a value to multiple aliases.  
 
 ### Importing feed
 

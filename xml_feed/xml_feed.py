@@ -23,6 +23,10 @@ CONTENT_KEYS = structures.AttributeDict({
     'content_encoded': '{http://purl.org/rss/1.0/modules/content/}encoded',
 })
 
+CONFIG_FIELDS_TO_REMOVE = [
+    'field_aliases',
+]
+
 class Article(object):
     """Article details from the field."""
 
@@ -36,8 +40,31 @@ class Article(object):
 
 
 class Options(object):
-    def __init__(self):
-        self.keys_to_field_names = {}
+    def __init__(self, config):
+        self.field_aliases = {}
+        self._parse_config(config)
+
+    def _parse_config(self, config):
+        if 'field_aliases' in config:
+            for alias, field in config['field_aliases'].iteritems():
+                self.alias_field(field, alias)
+
+    def alias_field(self, field, alias):
+        if field not in self.field_aliases.keys():
+            self.field_aliases[field] = []
+        self.field_aliases[field] = self.field_aliases[field] + [alias]
+
+    def get_aliases(self, field):
+        if field in self.field_aliases.keys():
+            return self.field_aliases[field]
+        else:
+            return []
+
+    def get_all_aliases(self):
+        all_aliases = []
+        for aliases in self.field_aliases.values():
+            all_aliases = all_aliases + aliases
+        return all_aliases
 
 
 class XmlFeedPreprocessHook(hooks.PreprocessHook):
@@ -49,6 +76,7 @@ class XmlFeedPreprocessHook(hooks.PreprocessHook):
         """Config for Xml feed preprocessing."""
         url = messages.StringField(1)
         collection = messages.StringField(2)
+        field_aliases = messages.BytesField(3)
 
     @staticmethod
     def _download_feed(url):
@@ -72,11 +100,7 @@ class XmlFeedPreprocessHook(hooks.PreprocessHook):
             article = Article()
 
             for child in item:
-                if child.tag in options.keys_to_field_names.keys():
-                    custom_field_name = options.keys_to_field_names[child.tag]
-                    value = child.text.encode('utf8')
-                    article.fields[custom_field_name] = value
-                elif child.tag == CONTENT_KEYS.title:
+                if child.tag == CONTENT_KEYS.title:
                     article.title = child.text.encode('utf8')
                 elif child.tag == CONTENT_KEYS.description:
                     article.description = child.text.encode('utf8')
@@ -90,6 +114,11 @@ class XmlFeedPreprocessHook(hooks.PreprocessHook):
                     article.content = child.text.encode('utf8')
                 elif child.text:
                     article.fields[child.tag] = child.text.encode('utf8')
+
+                # Handle aliases, in addition to established defaults
+                # Handled after defaults to allow for overrides
+                for alias in options.get_aliases(child.tag):
+                    article.fields[alias] = child.text.encode('utf8')
 
             if article.title:
                 slug = utils.slugify(article.title)
@@ -119,25 +148,28 @@ class XmlFeedPreprocessHook(hooks.PreprocessHook):
         if not config['collection'].endswith('/'):
             config['collection'] = '{}/'.format(config['collection'])
 
-        options = Options()
-        if 'custom_field_names' in config:
-            options.keys_to_field_names = dict(
-                (v,k) for k,v in config['custom_field_names'].iteritems())
+        options = Options(config)
 
-        config_message = self.parse_config(config)
+        sanitized_config = dict(
+            (k,v) for k,v in config.iteritems()
+            if k not in CONFIG_FIELDS_TO_REMOVE)
+        config_message = self.parse_config(sanitized_config)
 
         raw_feed = self._download_feed(config_message.url)
         for article in self._parse_articles(raw_feed, options):
             pod_path = '{}{}.html'.format(config_message.collection, article.slug)
             data = collections.OrderedDict()
+
             data['$title'] = article.title
             data['$description'] = article.description
             data['image'] = article.image
             data['published'] = article.published
             data['link'] = article.link
 
-            for field_name in options.keys_to_field_names.values():
-                data[field_name] = article.fields[field_name]
+            # Aliases handled after defaults to allow for overrides
+            for alias in options.get_all_aliases():
+                data[alias] = (
+                    article.fields[alias] if alias in article.fields else None)
 
             raw_front_matter = yaml.dump(
                 data, Dumper=yaml_utils.PlainTextYamlDumper,
