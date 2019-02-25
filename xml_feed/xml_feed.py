@@ -157,7 +157,9 @@ class XmlFeedPreprocessHook(hooks.PreprocessHook):
 
         raw_feed = self._download_feed(config_message.url)
         for article in self._parse_articles(raw_feed, options):
-            pod_path = '{}{}.html'.format(config_message.collection, article.slug)
+            safe_article_slug = article.slug.replace('.', '-dot')
+            pod_path = '{}{}.html'.format(
+                config_message.collection, safe_article_slug)
             data = collections.OrderedDict()
 
             data['$title'] = article.title
