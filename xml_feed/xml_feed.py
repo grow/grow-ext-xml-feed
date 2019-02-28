@@ -1,6 +1,7 @@
 """Xml feed extension for importing xml feeds into Grow documents."""
 
 import collections
+import re
 import requests
 import textwrap
 import yaml
@@ -157,9 +158,11 @@ class XmlFeedPreprocessHook(hooks.PreprocessHook):
 
         raw_feed = self._download_feed(config_message.url)
         for article in self._parse_articles(raw_feed, options):
-            safe_article_slug = article.slug.replace('.', '-dot')
+            removed_duplicate_dots = re.sub(r'([\.]{2,})', '.', article.slug)
+            removed_trailing_dot = re.sub(
+                r'([\.]$)', '', removed_duplicate_dots)
             pod_path = '{}{}.html'.format(
-                config_message.collection, safe_article_slug)
+                config_message.collection, removed_trailing_dot)
             data = collections.OrderedDict()
 
             data['$title'] = article.title
