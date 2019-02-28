@@ -1,6 +1,7 @@
 """Xml feed extension for importing xml feeds into Grow documents."""
 
 import collections
+import re
 import requests
 import textwrap
 import yaml
@@ -23,6 +24,10 @@ CONTENT_KEYS = structures.AttributeDict({
     'content_encoded': '{http://purl.org/rss/1.0/modules/content/}encoded',
 })
 
+CONFIG_FIELDS_TO_REMOVE = [
+    'field_aliases',
+]
+
 class Article(object):
     """Article details from the field."""
 
@@ -35,6 +40,34 @@ class Article(object):
         self.fields = {}
 
 
+class Options(object):
+    def __init__(self, config):
+        self.field_aliases = {}
+        self._parse_config(config)
+
+    def _parse_config(self, config):
+        if 'field_aliases' in config:
+            for alias, field in config['field_aliases'].iteritems():
+                self.alias_field(field, alias)
+
+    def alias_field(self, field, alias):
+        if field not in self.field_aliases.keys():
+            self.field_aliases[field] = []
+        self.field_aliases[field] = self.field_aliases[field] + [alias]
+
+    def get_aliases(self, field):
+        if field in self.field_aliases.keys():
+            return self.field_aliases[field]
+        else:
+            return []
+
+    def get_all_aliases(self):
+        all_aliases = []
+        for aliases in self.field_aliases.values():
+            all_aliases = all_aliases + aliases
+        return all_aliases
+
+
 class XmlFeedPreprocessHook(hooks.PreprocessHook):
     """Handle the preprocess hook."""
 
@@ -44,23 +77,24 @@ class XmlFeedPreprocessHook(hooks.PreprocessHook):
         """Config for Xml feed preprocessing."""
         url = messages.StringField(1)
         collection = messages.StringField(2)
+        field_aliases = messages.BytesField(3)
 
     @staticmethod
     def _download_feed(url):
         return requests.get(url).content
 
     @classmethod
-    def _parse_articles(cls, raw_feed):
+    def _parse_articles(cls, raw_feed, options):
         root = ET.fromstring(raw_feed)
 
         if root.tag == 'rss':
-            for article in cls._parse_articles_rss(root):
+            for article in cls._parse_articles_rss(root, options):
                 yield article
         else:
             raise ValueError('Only supports rss feeds currently.')
 
     @staticmethod
-    def _parse_articles_rss(root):
+    def _parse_articles_rss(root, options):
         used_titles = set()
 
         for item in root.findall('./channel/item'):
@@ -81,6 +115,11 @@ class XmlFeedPreprocessHook(hooks.PreprocessHook):
                     article.content = child.text.encode('utf8')
                 elif child.text:
                     article.fields[child.tag] = child.text.encode('utf8')
+
+                # Handle aliases, in addition to established defaults
+                # Handled after defaults to allow for overrides
+                for alias in options.get_aliases(child.tag):
+                    article.fields[alias] = child.text.encode('utf8')
 
             if article.title:
                 slug = utils.slugify(article.title)
@@ -110,17 +149,32 @@ class XmlFeedPreprocessHook(hooks.PreprocessHook):
         if not config['collection'].endswith('/'):
             config['collection'] = '{}/'.format(config['collection'])
 
-        config = self.parse_config(config)
+        options = Options(config)
 
-        raw_feed = self._download_feed(config.url)
-        for article in self._parse_articles(raw_feed):
-            pod_path = '{}{}.html'.format(config.collection, article.slug)
+        sanitized_config = dict(
+            (k,v) for k,v in config.iteritems()
+            if k not in CONFIG_FIELDS_TO_REMOVE)
+        config_message = self.parse_config(sanitized_config)
+
+        raw_feed = self._download_feed(config_message.url)
+        for article in self._parse_articles(raw_feed, options):
+            removed_duplicate_dots = re.sub(r'[\.]{2,}', '.', article.slug)
+            removed_trailing_dot = re.sub(r'[\.]$', '', removed_duplicate_dots)
+            pod_path = '{}{}.html'.format(
+                config_message.collection, removed_trailing_dot)
             data = collections.OrderedDict()
+
             data['$title'] = article.title
             data['$description'] = article.description
             data['image'] = article.image
             data['published'] = article.published
             data['link'] = article.link
+
+            # Aliases handled after defaults to allow for overrides
+            for alias in options.get_all_aliases():
+                data[alias] = (
+                    article.fields[alias] if alias in article.fields else None)
+
             raw_front_matter = yaml.dump(
                 data, Dumper=yaml_utils.PlainTextYamlDumper,
                 default_flow_style=False, allow_unicode=True, width=800)
