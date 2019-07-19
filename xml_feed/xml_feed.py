@@ -47,8 +47,8 @@ class Options(object):
         self._parse_config(config)
 
     def _parse_config(self, config):
-        if config.field_aliases:
-            for alias, field in config.field_aliases.iteritems():
+        if 'field_aliases' in config:
+            for alias, field in config['field_aliases'].iteritems():
                 self.alias_field(field, alias)
 
     def alias_field(self, field, alias):
@@ -191,9 +191,12 @@ class XmlFeedPreprocessHook(hooks.PreprocessHook):
         """Execute preprocessing."""
         if not config['collection'].endswith('/'):
             config['collection'] = '{}/'.format(config['collection'])
-
-        config = self.parse_config(config)
         options = Options(config)
+
+        # Can't handle the custom parts of the config.
+        sanitized_config = dict(
+            (k,v) for k,v in config.iteritems() if k not in CONFIG_FIELDS_TO_REMOVE)
+        config = self.parse_config(sanitized_config)
 
         for article in self._parse_feed(config.url, options):
             article_datetime = datetime.fromtimestamp(time.mktime(article.published))
