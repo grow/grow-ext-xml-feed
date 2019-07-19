@@ -212,7 +212,7 @@ class XmlFeedPreprocessHook(hooks.PreprocessHook):
             data['$title'] = article.title
             data['$description'] = article.description
             data['image'] = article.image
-            data['published'] = article.published
+            data['published'] = article_datetime
             data['link'] = article.link
 
             # Aliases handled after defaults to allow for overrides
