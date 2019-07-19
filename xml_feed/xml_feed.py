@@ -4,8 +4,9 @@ import collections
 import datetime
 import textwrap
 import time
-import feedparser
+import re
 import yaml
+import feedparser
 from bs4 import BeautifulSoup as BS
 from datetime import datetime
 from dateutil.parser import parse
@@ -78,6 +79,15 @@ class XmlFeedPreprocessHook(hooks.PreprocessHook):
         url = messages.StringField(1)
         collection = messages.StringField(2)
         field_aliases = messages.BytesField(3)
+        file_format = messages.StringField(4)
+
+    @staticmethod
+    def _cleanup_slug(value):
+        # Remove multiple periods.
+        value = re.sub(r'[\.]{2,}', '.', value)
+        # Remove trailing period.
+        value = re.sub(r'[\.]$', '', value)
+        return value
 
     @staticmethod
     def _cleanup_yaml(value):
@@ -187,10 +197,15 @@ class XmlFeedPreprocessHook(hooks.PreprocessHook):
 
         for article in self._parse_feed(config.url, options):
             article_datetime = datetime.fromtimestamp(time.mktime(article.published))
-            pod_path = '{}/{}/{}.fm'.format(config.collection, article_datetime.year, article.slug)
+            slug = self._cleanup_slug(article.slug)
+
+            file_format = config.file_format or '{year}/{slug}.html'
+            file_name = file_format.format(
+                year=article_datetime.year, month=article_datetime.month,
+                day=article_datetime.day, slug=slug)
+            pod_path = '{}{}'.format(config.collection, file_name)
 
             data = collections.OrderedDict()
-
             data['$title'] = article.title
             data['$description'] = article.description
             data['image'] = article.image
