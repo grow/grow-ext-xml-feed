@@ -1,10 +1,11 @@
 """Xml feed extension for importing xml feeds into Grow documents."""
 
+import collections
 import datetime
 import textwrap
 import time
 import feedparser
-import tomd
+import yaml
 from bs4 import BeautifulSoup as BS
 from datetime import datetime
 from dateutil.parser import parse
@@ -45,8 +46,8 @@ class Options(object):
         self._parse_config(config)
 
     def _parse_config(self, config):
-        if 'field_aliases' in config:
-            for alias, field in config['field_aliases'].iteritems():
+        if config.field_aliases:
+            for alias, field in config.field_aliases.iteritems():
                 self.alias_field(field, alias)
 
     def alias_field(self, field, alias):
@@ -85,7 +86,7 @@ class XmlFeedPreprocessHook(hooks.PreprocessHook):
         return value
 
     @staticmethod
-    def _parse_articles_atom(feed):
+    def _parse_articles_atom(feed, options):
         used_titles = set()
 
         for entry in feed.entries:
@@ -124,7 +125,7 @@ class XmlFeedPreprocessHook(hooks.PreprocessHook):
             yield article
 
     @staticmethod
-    def _parse_articles_rss(feed):
+    def _parse_articles_rss(feed, options):
         used_titles = set()
 
         for entry in feed.entries:
@@ -134,11 +135,6 @@ class XmlFeedPreprocessHook(hooks.PreprocessHook):
             article.content = entry.summary.encode('utf-8')
             article.link = entry.link
             article.published = entry.published_parsed
-
-                # Handle aliases, in addition to established defaults
-                # Handled after defaults to allow for overrides
-                for alias in options.get_aliases(child.tag):
-                    article.fields[alias] = child.text.encode('utf8')
 
             if article.title:
                 slug = utils.slugify(article.title)
@@ -157,7 +153,6 @@ class XmlFeedPreprocessHook(hooks.PreprocessHook):
                 soup_article_content = BS(article.content, "html.parser")
                 # article.content = soup_article_content.get_text().encode('utf-8')
                 article.content = soup_article_content.prettify().encode('utf-8')
-                # article.content = tomd.convert(soup_article_content.prettify().encode('utf-8'))
                 soup_article_image = soup_article_content.find('img')
 
                 if soup_article_image:
@@ -169,16 +164,14 @@ class XmlFeedPreprocessHook(hooks.PreprocessHook):
             yield article
 
     @classmethod
-    def _parse_feed(cls, feed_url):
+    def _parse_feed(cls, feed_url, options):
         feed = feedparser.parse(feed_url)
 
-        print feed.version
-
         if feed.version == 'atom10':
-            for article in cls._parse_articles_atom(feed):
+            for article in cls._parse_articles_atom(feed, options):
                 yield article
         elif feed.version == 'rss20':
-            for article in cls._parse_articles_rss(feed):
+            for article in cls._parse_articles_rss(feed, options):
                 yield article
         else:
             raise ValueError('Feed importer only supports rss and atom feeds.')
@@ -190,33 +183,38 @@ class XmlFeedPreprocessHook(hooks.PreprocessHook):
             config['collection'] = '{}/'.format(config['collection'])
 
         config = self.parse_config(config)
+        options = Options(config)
 
-        for article in self._parse_feed(config.url):
+        for article in self._parse_feed(config.url, options):
             article_datetime = datetime.fromtimestamp(time.mktime(article.published))
-            pod_path = '{}/md/{}/{}.fm'.format(config.collection, article_datetime.year, article.slug)
-            pod_path_md = '{}/md/{}/{}.md'.format(config.collection, article_datetime.year, article.slug)
+            pod_path = '{}/{}/{}.fm'.format(config.collection, article_datetime.year, article.slug)
 
-            raw_front_matter = textwrap.dedent(
-                """\
-                $title: {}
-                $description: {}
-                $date: {}
-                image: {}
-                """.rstrip()).format(
-                    self._cleanup_yaml(article.title),
-                    self._cleanup_yaml(article.description),
-                    article_datetime.strftime('%Y-%m-%d'),
-                    article.image)
+            data = collections.OrderedDict()
+
+            data['$title'] = article.title
+            data['$description'] = article.description
+            data['image'] = article.image
+            data['published'] = article.published
+            data['link'] = article.link
+
+            # Aliases handled after defaults to allow for overrides
+            for alias in options.get_all_aliases():
+                data[alias] = (
+                    article.fields[alias] if alias in article.fields else None)
+
+            raw_front_matter = yaml.dump(
+                data, Dumper=yaml_utils.PlainTextYamlDumper,
+                default_flow_style=False, allow_unicode=True, width=800)
 
             raw_content = textwrap.dedent(
                 """\
                 {}
                 ---
-                """).format(raw_front_matter)
+                {}
+                """).format(raw_front_matter, article.content)
 
             self.pod.logger.info('Saving {}'.format(pod_path))
             self.pod.write_file(pod_path, raw_content)
-            self.pod.write_file(pod_path_md, article.content)
 
         return previous_result
 
