@@ -56,6 +56,32 @@ stored under `custom_foo_field_name` and `creator` keys.
 These custom field names can be used to alias or override default field names
 and map a value to multiple aliases.  
 
+### Custom file format
+
+By default the xml extension will write the blog posts in directory by year,
+this can be changed by providing a custom format using any of the following
+variables:
+
+```
+day: Day of the article posting.
+month: Month of the article posting.
+slug: Slug of the article title.
+year: Year of the article posting.
+```
+
+For example:
+
+```
+preprocessors:
+- name: my_feed
+  kind: xml_feed
+  url: https://www.blog.google/rss/
+  collection: /content/feed/
+  file_format: "{year}/{month}/{day}/{slug}.html"
+```
+
+The above config would write the imported documents to `/content/feed/2019/7/18/article-title.html`.
+
 ### Importing feed
 
 To run the feed import run `grow preprocess -p my_feed`.
