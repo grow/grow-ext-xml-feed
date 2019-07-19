@@ -11,5 +11,5 @@ preprocessors:
   collection: /content/feed/
 - name: medium_feed
   kind: xml_feed
-  url: https://medium.com/feed/@loonforall
+  url: https://medium.com/feed/loon-for-all
   collection: /content/medium_feed/

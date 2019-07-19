@@ -12,6 +12,7 @@ from protorpc import messages
 from grow import extensions
 from grow.common import structures
 from grow.common import utils
+from grow.common import yaml_utils
 from grow.extensions import hooks
 
 CONTENT_KEYS = structures.AttributeDict({
@@ -21,6 +22,10 @@ CONTENT_KEYS = structures.AttributeDict({
     'published': 'pubDate',
     'content_encoded': '{http://purl.org/rss/1.0/modules/content/}encoded',
 })
+
+CONFIG_FIELDS_TO_REMOVE = [
+    'field_aliases',
+]
 
 class Article(object):
     """Article details from the field."""
@@ -34,6 +39,34 @@ class Article(object):
         self.fields = {}
 
 
+class Options(object):
+    def __init__(self, config):
+        self.field_aliases = {}
+        self._parse_config(config)
+
+    def _parse_config(self, config):
+        if 'field_aliases' in config:
+            for alias, field in config['field_aliases'].iteritems():
+                self.alias_field(field, alias)
+
+    def alias_field(self, field, alias):
+        if field not in self.field_aliases.keys():
+            self.field_aliases[field] = []
+        self.field_aliases[field] = self.field_aliases[field] + [alias]
+
+    def get_aliases(self, field):
+        if field in self.field_aliases.keys():
+            return self.field_aliases[field]
+        else:
+            return []
+
+    def get_all_aliases(self):
+        all_aliases = []
+        for aliases in self.field_aliases.values():
+            all_aliases = all_aliases + aliases
+        return all_aliases
+
+
 class XmlFeedPreprocessHook(hooks.PreprocessHook):
     """Handle the preprocess hook."""
 
@@ -43,6 +76,7 @@ class XmlFeedPreprocessHook(hooks.PreprocessHook):
         """Config for Xml feed preprocessing."""
         url = messages.StringField(1)
         collection = messages.StringField(2)
+        field_aliases = messages.BytesField(3)
 
     @staticmethod
     def _cleanup_yaml(value):
@@ -100,6 +134,11 @@ class XmlFeedPreprocessHook(hooks.PreprocessHook):
             article.content = entry.summary.encode('utf-8')
             article.link = entry.link
             article.published = entry.published_parsed
+
+                # Handle aliases, in addition to established defaults
+                # Handled after defaults to allow for overrides
+                for alias in options.get_aliases(child.tag):
+                    article.fields[alias] = child.text.encode('utf8')
 
             if article.title:
                 slug = utils.slugify(article.title)
