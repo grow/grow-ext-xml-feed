@@ -7,7 +7,7 @@ import time
 import re
 import yaml
 import feedparser
-import html2markdown
+import html2text
 import slugify as slugify_lib
 from bs4 import BeautifulSoup as BS
 from datetime import datetime
@@ -135,7 +135,7 @@ class XmlFeedPreprocessHook(hooks.PreprocessHook):
                 soup_article_content = BS(article.content, "html.parser")
                 pretty_content = soup_article_content.prettify().encode('utf-8')
                 if convert_to_markdown:
-                    article.content = html2markdown.convert(pretty_content)
+                    article.content = html2text.convert(pretty_content)
                 else:
                     article.content = pretty_content
                 soup_article_image = soup_article_content.find('img')
@@ -180,7 +180,7 @@ class XmlFeedPreprocessHook(hooks.PreprocessHook):
                 soup_article_content = BS(article.content, "html.parser")
                 pretty_content = soup_article_content.prettify().encode('utf-8')
                 if convert_to_markdown:
-                    article.content = html2markdown.convert(pretty_content)
+                    article.content = html2text.convert(pretty_content)
                 else:
                     article.content = pretty_content
                 soup_article_image = soup_article_content.find('img')
@@ -222,7 +222,9 @@ class XmlFeedPreprocessHook(hooks.PreprocessHook):
             (k, v) for k, v in config.iteritems() if k not in CONFIG_FIELDS_TO_REMOVE)
         config = self.parse_config(sanitized_config)
 
-        for article in self._parse_feed(config.url, options, config.slugify):
+        for article in self._parse_feed(
+                config.url, options, slugify=config.slugify,
+                convert_to_markdown=config.convert_to_markdown):
             article_datetime = datetime.fromtimestamp(
                 time.mktime(article.published))
             slug = self._cleanup_slug(article.slug)
@@ -237,6 +239,7 @@ class XmlFeedPreprocessHook(hooks.PreprocessHook):
             data = collections.OrderedDict()
             data['$title'] = article.title
             data['$description'] = article.description
+            data['$date'] = '{:%Y-%m-%d}'.format(article_datetime)
             data['image'] = article.image
             data['published'] = article_datetime
             data['link'] = article.link

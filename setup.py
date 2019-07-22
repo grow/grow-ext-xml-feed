@@ -15,7 +15,7 @@ setup(
     ],
     install_requires=[
         'feedparser>=5.2.1',
-        'html2markdown>=0.1.7',
+        'html2text>=2018.1.9',
         'python-dateutil>=2.7.3',
         'python-slugify>=3.0.2',
         'protorpc==0.11.1',
