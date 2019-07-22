@@ -7,6 +7,7 @@ import time
 import re
 import yaml
 import feedparser
+import slugify
 from bs4 import BeautifulSoup as BS
 from datetime import datetime
 from dateutil.parser import parse
@@ -80,13 +81,16 @@ class XmlFeedPreprocessHook(hooks.PreprocessHook):
         collection = messages.StringField(2)
         field_aliases = messages.BytesField(3)
         file_format = messages.StringField(4)
+        slugify = messages.BooleanField(5, default=False)
 
     @staticmethod
     def _cleanup_slug(value):
+        # Remove multiple dashes.
+        value = re.sub(r'[-]{2,}', '-', value)
         # Remove multiple periods.
         value = re.sub(r'[\.]{2,}', '.', value)
         # Remove trailing period.
-        value = re.sub(r'[\.]$', '', value)
+        value = re.sub(r'[\.-]$', '', value)
         return value
 
     @staticmethod
@@ -96,7 +100,7 @@ class XmlFeedPreprocessHook(hooks.PreprocessHook):
         return value
 
     @staticmethod
-    def _parse_articles_atom(feed, options):
+    def _parse_articles_atom(feed, options, slugify):
         used_titles = set()
 
         for entry in feed.entries:
@@ -109,7 +113,10 @@ class XmlFeedPreprocessHook(hooks.PreprocessHook):
             article.published = entry.published_parsed
 
             if article.title:
-                slug = utils.slugify(article.title)
+                if slugify:
+                    slug = slugify(article.title)
+                else:
+                    slug = self._cleanup_slug(utils.slugify(article.title))
 
                 if slug in used_titles:
                     index = 1
@@ -135,7 +142,7 @@ class XmlFeedPreprocessHook(hooks.PreprocessHook):
             yield article
 
     @staticmethod
-    def _parse_articles_rss(feed, options):
+    def _parse_articles_rss(feed, options, slugify):
         used_titles = set()
 
         for entry in feed.entries:
@@ -147,7 +154,10 @@ class XmlFeedPreprocessHook(hooks.PreprocessHook):
             article.published = entry.published_parsed
 
             if article.title:
-                slug = utils.slugify(article.title)
+                if slugify:
+                    slug = slugify(article.title)
+                else:
+                    slug = self._cleanup_slug(utils.slugify(article.title))
 
                 if slug in used_titles:
                     index = 1
@@ -174,7 +184,7 @@ class XmlFeedPreprocessHook(hooks.PreprocessHook):
             yield article
 
     @classmethod
-    def _parse_feed(cls, feed_url, options):
+    def _parse_feed(cls, feed_url, options, slugify):
         feed = feedparser.parse(feed_url)
 
         if feed.version == 'atom10':
@@ -198,7 +208,7 @@ class XmlFeedPreprocessHook(hooks.PreprocessHook):
             (k,v) for k,v in config.iteritems() if k not in CONFIG_FIELDS_TO_REMOVE)
         config = self.parse_config(sanitized_config)
 
-        for article in self._parse_feed(config.url, options):
+        for article in self._parse_feed(config.url, options, config.slugify):
             article_datetime = datetime.fromtimestamp(time.mktime(article.published))
             slug = self._cleanup_slug(article.slug)
 

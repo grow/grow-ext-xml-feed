@@ -16,6 +16,7 @@ setup(
     install_requires=[
         'feedparser>=5.2.1',
         'python-dateutil>=2.7.3',
+        'python-slugify>=3.0.2',
         'protorpc==0.11.1',
         'requests>=2.18.4',
     ],
