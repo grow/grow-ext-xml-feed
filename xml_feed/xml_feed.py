@@ -133,11 +133,11 @@ class XmlFeedPreprocessHook(hooks.PreprocessHook):
 
             if article.content:
                 soup_article_content = BS(article.content, "html.parser")
-                pretty_content = soup_article_content.prettify().encode('utf-8')
+                pretty_content = soup_article_content.prettify()
                 if convert_to_markdown:
-                    article.content = html2text.convert(pretty_content)
+                    article.content = html2text.html2text(pretty_content).encode('utf-8')
                 else:
-                    article.content = pretty_content
+                    article.content = pretty_content.encode('utf-8')
                 soup_article_image = soup_article_content.find('img')
 
                 if soup_article_image:
@@ -178,11 +178,11 @@ class XmlFeedPreprocessHook(hooks.PreprocessHook):
 
             if article.content:
                 soup_article_content = BS(article.content, "html.parser")
-                pretty_content = soup_article_content.prettify().encode('utf-8')
+                pretty_content = soup_article_content.prettify()
                 if convert_to_markdown:
-                    article.content = html2text.convert(pretty_content)
+                    article.content = html2text.html2text(pretty_content).encode('utf-8')
                 else:
-                    article.content = pretty_content
+                    article.content = pretty_content.encode('utf-8')
                 soup_article_image = soup_article_content.find('img')
 
                 if soup_article_image:
