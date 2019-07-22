@@ -7,7 +7,8 @@ import time
 import re
 import yaml
 import feedparser
-import slugify
+import html2markdown
+import slugify as slugify_lib
 from bs4 import BeautifulSoup as BS
 from datetime import datetime
 from dateutil.parser import parse
@@ -29,6 +30,7 @@ CONTENT_KEYS = structures.AttributeDict({
 CONFIG_FIELDS_TO_REMOVE = [
     'field_aliases',
 ]
+
 
 class Article(object):
     """Article details from the field."""
@@ -82,6 +84,7 @@ class XmlFeedPreprocessHook(hooks.PreprocessHook):
         field_aliases = messages.BytesField(3)
         file_format = messages.StringField(4)
         slugify = messages.BooleanField(5, default=False)
+        convert_to_markdown = messages.BooleanField(6, default=False)
 
     @staticmethod
     def _cleanup_slug(value):
@@ -100,7 +103,7 @@ class XmlFeedPreprocessHook(hooks.PreprocessHook):
         return value
 
     @staticmethod
-    def _parse_articles_atom(feed, options, slugify):
+    def _parse_articles_atom(feed, options, slugify=False, convert_to_markdown=False):
         used_titles = set()
 
         for entry in feed.entries:
@@ -114,7 +117,7 @@ class XmlFeedPreprocessHook(hooks.PreprocessHook):
 
             if article.title:
                 if slugify:
-                    slug = slugify(article.title)
+                    slug = slugify_lib.slugify(article.title)
                 else:
                     slug = self._cleanup_slug(utils.slugify(article.title))
 
@@ -130,7 +133,11 @@ class XmlFeedPreprocessHook(hooks.PreprocessHook):
 
             if article.content:
                 soup_article_content = BS(article.content, "html.parser")
-                article.content = soup_article_content.prettify().encode('utf-8')
+                pretty_content = soup_article_content.prettify().encode('utf-8')
+                if convert_to_markdown:
+                    article.content = html2markdown.convert(pretty_content)
+                else:
+                    article.content = pretty_content
                 soup_article_image = soup_article_content.find('img')
 
                 if soup_article_image:
@@ -142,7 +149,7 @@ class XmlFeedPreprocessHook(hooks.PreprocessHook):
             yield article
 
     @staticmethod
-    def _parse_articles_rss(feed, options, slugify):
+    def _parse_articles_rss(feed, options, slugify=False, convert_to_markdown=False):
         used_titles = set()
 
         for entry in feed.entries:
@@ -155,7 +162,7 @@ class XmlFeedPreprocessHook(hooks.PreprocessHook):
 
             if article.title:
                 if slugify:
-                    slug = slugify(article.title)
+                    slug = slugify_lib.slugify(article.title)
                 else:
                     slug = self._cleanup_slug(utils.slugify(article.title))
 
@@ -171,8 +178,11 @@ class XmlFeedPreprocessHook(hooks.PreprocessHook):
 
             if article.content:
                 soup_article_content = BS(article.content, "html.parser")
-                # article.content = soup_article_content.get_text().encode('utf-8')
-                article.content = soup_article_content.prettify().encode('utf-8')
+                pretty_content = soup_article_content.prettify().encode('utf-8')
+                if convert_to_markdown:
+                    article.content = html2markdown.convert(pretty_content)
+                else:
+                    article.content = pretty_content
                 soup_article_image = soup_article_content.find('img')
 
                 if soup_article_image:
@@ -184,14 +194,18 @@ class XmlFeedPreprocessHook(hooks.PreprocessHook):
             yield article
 
     @classmethod
-    def _parse_feed(cls, feed_url, options, slugify):
+    def _parse_feed(cls, feed_url, options, slugify=False, convert_to_markdown=False):
         feed = feedparser.parse(feed_url)
 
         if feed.version == 'atom10':
-            for article in cls._parse_articles_atom(feed, options):
+            for article in cls._parse_articles_atom(
+                    feed, options, slugify=slugify,
+                    convert_to_markdown=convert_to_markdown):
                 yield article
         elif feed.version == 'rss20':
-            for article in cls._parse_articles_rss(feed, options):
+            for article in cls._parse_articles_rss(
+                    feed, options, slugify=slugify,
+                    convert_to_markdown=convert_to_markdown):
                 yield article
         else:
             raise ValueError('Feed importer only supports rss and atom feeds.')
@@ -205,17 +219,19 @@ class XmlFeedPreprocessHook(hooks.PreprocessHook):
 
         # Can't handle the custom parts of the config.
         sanitized_config = dict(
-            (k,v) for k,v in config.iteritems() if k not in CONFIG_FIELDS_TO_REMOVE)
+            (k, v) for k, v in config.iteritems() if k not in CONFIG_FIELDS_TO_REMOVE)
         config = self.parse_config(sanitized_config)
 
         for article in self._parse_feed(config.url, options, config.slugify):
-            article_datetime = datetime.fromtimestamp(time.mktime(article.published))
+            article_datetime = datetime.fromtimestamp(
+                time.mktime(article.published))
             slug = self._cleanup_slug(article.slug)
 
-            file_format = config.file_format or '{year}/{slug}.html'
+            ext = 'md' if config.convert_to_markdown else 'html'
+            file_format = config.file_format or '{year}/{slug}.{ext}'
             file_name = file_format.format(
                 year=article_datetime.year, month=article_datetime.month,
-                day=article_datetime.day, slug=slug)
+                day=article_datetime.day, slug=slug, ext=ext)
             pod_path = '{}{}'.format(config.collection, file_name)
 
             data = collections.OrderedDict()
