@@ -87,6 +87,14 @@ class XmlFeedPreprocessHook(hooks.PreprocessHook):
         convert_to_markdown = messages.BooleanField(6, default=False)
 
     @staticmethod
+    def _cleanup_content(value):
+        # Remove the HR since they mess up the frontmatter.
+        value = re.sub(r'[-]{3,}', '', value)
+        # Cleanup whitespace.
+        value = re.sub(r'[\r\n]{2,}', r'\n', value)
+        return value
+
+    @staticmethod
     def _cleanup_slug(value):
         # Remove multiple dashes.
         value = re.sub(r'[-]{2,}', '-', value)
@@ -102,8 +110,8 @@ class XmlFeedPreprocessHook(hooks.PreprocessHook):
             return '"{}"'.format(value)
         return value
 
-    @staticmethod
-    def _parse_articles_atom(feed, options, slugify=False, convert_to_markdown=False):
+    @classmethod
+    def _parse_articles_atom(cls, feed, options, slugify=False, convert_to_markdown=False):
         used_titles = set()
 
         for entry in feed.entries:
@@ -135,9 +143,11 @@ class XmlFeedPreprocessHook(hooks.PreprocessHook):
                 soup_article_content = BS(article.content, "html.parser")
                 pretty_content = soup_article_content.prettify()
                 if convert_to_markdown:
-                    article.content = html2text.html2text(pretty_content).encode('utf-8')
+                    article.content = cls._cleanup_content(
+                        html2text.html2text(pretty_content).encode('utf-8'))
                 else:
-                    article.content = pretty_content.encode('utf-8')
+                    article.content = cls._cleanup_content(
+                        pretty_content.encode('utf-8'))
                 soup_article_image = soup_article_content.find('img')
 
                 if soup_article_image:
@@ -148,8 +158,8 @@ class XmlFeedPreprocessHook(hooks.PreprocessHook):
 
             yield article
 
-    @staticmethod
-    def _parse_articles_rss(feed, options, slugify=False, convert_to_markdown=False):
+    @classmethod
+    def _parse_articles_rss(cls, feed, options, slugify=False, convert_to_markdown=False):
         used_titles = set()
 
         for entry in feed.entries:
@@ -180,9 +190,11 @@ class XmlFeedPreprocessHook(hooks.PreprocessHook):
                 soup_article_content = BS(article.content, "html.parser")
                 pretty_content = soup_article_content.prettify()
                 if convert_to_markdown:
-                    article.content = html2text.html2text(pretty_content).encode('utf-8')
+                    article.content = cls._cleanup_content(
+                        html2text.html2text(pretty_content).encode('utf-8'))
                 else:
-                    article.content = pretty_content.encode('utf-8')
+                    article.content = cls._cleanup_content(
+                        pretty_content.encode('utf-8'))
                 soup_article_image = soup_article_content.find('img')
 
                 if soup_article_image:
