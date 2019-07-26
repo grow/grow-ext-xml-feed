@@ -26,10 +26,11 @@ CONTENT_KEYS = structures.AttributeDict({
     'published': 'pubDate',
     'content_encoded': '{http://purl.org/rss/1.0/modules/content/}encoded',
 })
-
 CONFIG_FIELDS_TO_REMOVE = [
     'field_aliases',
 ]
+RE_DATA_FORMAT = re.compile(r'^([a-z0-9\.]{3,}): (.+)$', re.IGNORECASE | re.MULTILINE)
+RE_BOUNDARY = re.compile(r'^~{3,}\s*$', re.MULTILINE)
 
 
 class Article(object):
@@ -109,6 +110,22 @@ class XmlFeedPreprocessHook(hooks.PreprocessHook):
         if ':' in value:
             return '"{}"'.format(value)
         return value
+
+    @staticmethod
+    def _extract_meta(content):
+        meta = {}
+        parts = RE_BOUNDARY.split(content)
+        if len(parts) == 1:
+            return content, meta
+
+        content = parts[0]
+        raw_meta = parts[1]
+
+        meta_search = RE_DATA_FORMAT.search(raw_meta)
+        if meta_search:
+            print meta_search.groups()
+
+        return content, meta
 
     @classmethod
     def _parse_articles_atom(cls, feed, options, slugify=False, convert_to_markdown=False):
@@ -251,7 +268,7 @@ class XmlFeedPreprocessHook(hooks.PreprocessHook):
             data = collections.OrderedDict()
             data['$title'] = article.title
             data['$description'] = article.description
-            data['$date'] = '{:%Y-%m-%d}'.format(article_datetime)
+            data['$date'] = article_datetime
             data['image'] = article.image
             data['published'] = article_datetime
             data['link'] = article.link
@@ -260,6 +277,11 @@ class XmlFeedPreprocessHook(hooks.PreprocessHook):
             for alias in options.get_all_aliases():
                 data[alias] = (
                     article.fields[alias] if alias in article.fields else None)
+
+            article.content, meta = self._extract_meta(article.content)
+
+            for key, value in meta.iteritems():
+                data[key] = value
 
             raw_front_matter = yaml.dump(
                 data, Dumper=yaml_utils.PlainTextYamlDumper,
