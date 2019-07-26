@@ -29,7 +29,7 @@ CONTENT_KEYS = structures.AttributeDict({
 CONFIG_FIELDS_TO_REMOVE = [
     'field_aliases',
 ]
-RE_DATA_FORMAT = re.compile(r'^([a-z0-9\.]{3,}): (.+)$', re.IGNORECASE | re.MULTILINE)
+RE_DATA_FORMAT = re.compile(r'^([a-z0-9\.]{3,}):(.+)$', re.IGNORECASE | re.MULTILINE)
 RE_BOUNDARY = re.compile(r'^~{3,}\s*$', re.MULTILINE)
 
 
@@ -112,7 +112,18 @@ class XmlFeedPreprocessHook(hooks.PreprocessHook):
         return value
 
     @staticmethod
-    def _extract_meta(content):
+    def _deep_object(obj, key, value):
+        parts = key.split('.')
+        final_key = parts.pop()
+        tmp_obj = obj
+        for part in parts:
+            if part not in tmp_obj:
+                tmp_obj[part] = {}
+            tmp_obj = tmp_obj[part]
+        tmp_obj[final_key] = value
+
+    @classmethod
+    def _extract_meta(cls, content):
         meta = {}
         parts = RE_BOUNDARY.split(content)
         if len(parts) == 1:
@@ -121,9 +132,10 @@ class XmlFeedPreprocessHook(hooks.PreprocessHook):
         content = parts[0]
         raw_meta = parts[1]
 
-        meta_search = RE_DATA_FORMAT.search(raw_meta)
+        meta_search = RE_DATA_FORMAT.finditer(raw_meta)
         if meta_search:
-            print meta_search.groups()
+            for result in meta_search:
+                cls._deep_object(meta, result.group(1), result.group(2).strip())
 
         return content, meta
 
