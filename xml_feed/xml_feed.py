@@ -30,7 +30,7 @@ CONFIG_FIELDS_TO_REMOVE = [
     'field_aliases',
 ]
 RE_DATA_FORMAT = re.compile(r'^([a-z0-9\.]{3,}):(.+)$', re.IGNORECASE | re.MULTILINE)
-RE_BOUNDARY = re.compile(r'^~{3,}\s*$', re.MULTILINE)
+RE_BOUNDARY = re.compile(r'^[~]{3,}\s*$', re.MULTILINE)
 
 
 class Article(object):
@@ -121,6 +121,7 @@ class XmlFeedPreprocessHook(hooks.PreprocessHook):
                 tmp_obj[part] = {}
             tmp_obj = tmp_obj[part]
         tmp_obj[final_key] = value
+        return tmp_obj
 
     @classmethod
     def _extract_meta(cls, content):
@@ -135,9 +136,9 @@ class XmlFeedPreprocessHook(hooks.PreprocessHook):
         meta_search = RE_DATA_FORMAT.finditer(raw_meta)
         if meta_search:
             for result in meta_search:
-                cls._deep_object(meta, result.group(1), result.group(2).strip())
+                final_meta_add = cls._deep_object(meta, result.group(1), result.group(2).strip())
 
-        return content, meta
+        return content, final_meta_add
 
     @classmethod
     def _parse_articles_atom(cls, feed, options, slugify=False, convert_to_markdown=False):
@@ -171,16 +172,17 @@ class XmlFeedPreprocessHook(hooks.PreprocessHook):
             if article.content:
                 soup_article_content = BS(article.content, "html.parser")
                 pretty_content = soup_article_content.prettify()
+                soup_article_image = soup_article_content.find('img')
+
+                if soup_article_image:
+                    article.image = soup_article_image['src']
+
                 if convert_to_markdown:
                     article.content = cls._cleanup_content(
                         html2text.html2text(pretty_content).encode('utf-8'))
                 else:
                     article.content = cls._cleanup_content(
                         pretty_content.encode('utf-8'))
-                soup_article_image = soup_article_content.find('img')
-
-                if soup_article_image:
-                    article.image = soup_article_image['src']
 
             if not article.description:
                 article.description = article.title
