@@ -30,7 +30,7 @@ CONFIG_FIELDS_TO_REMOVE = [
     'field_aliases',
 ]
 RE_DATA_FORMAT = re.compile(r'^([a-z0-9\.]{3,}):(.+)$', re.IGNORECASE | re.MULTILINE)
-RE_BOUNDARY = re.compile(r'^[~]{3,}\s*$', re.MULTILINE)
+RE_BOUNDARY = re.compile(r'[~]{3,}', re.MULTILINE)
 
 
 class Article(object):
@@ -115,6 +115,8 @@ class XmlFeedPreprocessHook(hooks.PreprocessHook):
     def _deep_object(obj, key, value):
         parts = key.split('.')
         final_key = parts.pop()
+        if final_key == 'category':
+            final_key = '$' + final_key
         tmp_obj = obj
         for part in parts:
             if part not in tmp_obj:
