@@ -160,8 +160,9 @@ class XmlFeedPreprocessHook(hooks.PreprocessHook):
         for article in self._parse_articles(raw_feed, options):
             removed_duplicate_dots = re.sub(r'[\.]{2,}', '.', article.slug)
             removed_trailing_dot = re.sub(r'[\.]$', '', removed_duplicate_dots)
+            removed_spaces = re.sub(r'[\s]', '', removed_trailing_dot)
             pod_path = '{}{}.html'.format(
-                config_message.collection, removed_trailing_dot)
+                config_message.collection, removed_spaces)
             data = collections.OrderedDict()
 
             data['$title'] = article.title
