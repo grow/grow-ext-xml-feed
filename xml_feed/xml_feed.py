@@ -38,6 +38,8 @@ class Article(object):
 
     def __init__(self):
         self.title = None
+        self.author = None
+        self.authors = []
         self.description = None
         self.image = None
         self.link = None
@@ -154,6 +156,8 @@ class XmlFeedPreprocessHook(hooks.PreprocessHook):
             article.content = entry.content[0].value.encode('utf-8')
             article.link = entry.link
             article.published = entry.published_parsed
+            article.author = entry.author
+            article.authors = entry.authors
 
             if article.title:
                 if slugify:
@@ -198,16 +202,20 @@ class XmlFeedPreprocessHook(hooks.PreprocessHook):
         for entry in feed.entries:
             article = Article()
             article.title = entry.title.encode('utf-8')
-            # article.description = entry.summary.encode('utf-8')
+            if entry.summary != entry.content[0].value:
+                article.description = entry.summary.encode('utf-8')
             article.content = entry.summary.encode('utf-8')
             article.link = entry.link
             article.published = entry.published_parsed
+            article.author = entry.author
+            for author in entry.authors:
+                article.authors.append(dict(author))
 
             if article.title:
                 if slugify:
                     slug = slugify_lib.slugify(article.title)
                 else:
-                    slug = self._cleanup_slug(utils.slugify(article.title))
+                    slug = cls._cleanup_slug(utils.slugify(article.title))
 
                 if slug in used_titles:
                     index = 1
@@ -283,16 +291,16 @@ class XmlFeedPreprocessHook(hooks.PreprocessHook):
 
             data = collections.OrderedDict()
             data['$title'] = article.title
-            data['$description'] = article.description
+            if article.description:
+                data['$description'] = article.description
             data['$date'] = article_datetime
+            if article.author:
+                data['author'] = article.author
+            if article.authors:
+                data['authors'] = article.authors
             data['image'] = article.image
             data['published'] = article_datetime
             data['link'] = article.link
-
-            # Aliases handled after defaults to allow for overrides
-            for alias in options.get_all_aliases():
-                data[alias] = (
-                    article.fields[alias] if alias in article.fields else None)
 
             article.content, meta = self._extract_meta(article.content)
 
