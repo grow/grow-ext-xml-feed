@@ -1,1 +1,1 @@
-from xml_feed import *
+from . xml_feed import *
