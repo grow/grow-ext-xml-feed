@@ -29,32 +29,45 @@ preprocessors:
   - feed
 ```
 
-### Custom fields
+### Custom file format
 
-If custom fields are necessary they can be specified as part of the preprocessor
-config. For instance if you wanted to add a creator field `<dc:creator>` and a
-`<foo>` field with custom names, you would update the previous example as
-follows:
+By default the xml extension will write the blog posts in directory by year,
+this can be changed by providing a custom format using any of the following
+variables:
+
+```
+day: Day of the article posting.
+month: Month of the article posting.
+slug: Slug of the article title.
+year: Year of the article posting.
+ext: File extension (html or md)
+```
+
+For example:
 
 ```
 preprocessors:
 - name: my_feed
   kind: xml_feed
-  autorun: false
   url: https://www.blog.google/rss/
   collection: /content/feed/
-  custom_field_names:
-    creator: '{http://purl.org/dc/elements/1.1/}creator'
-    custom_foo_field_name: 'foo'
-  tags:
-  - feed
+  file_format: "{year}/{month}/{day}/{slug}.{ext}"
 ```
 
-In the resulting HTML files the `foo` and `dc:creator` information would be
-stored under `custom_foo_field_name` and `creator` keys.
+The above config would write the imported documents to `/content/feed/2019/7/18/article-title.html`.
 
-These custom field names can be used to alias or override default field names
-and map a value to multiple aliases.  
+### Import as markdown
+
+The preprocessor can also convert the content of the feed from html into markdown.
+
+```
+preprocessors:
+- name: my_feed
+  kind: xml_feed
+  url: https://www.blog.google/rss/
+  collection: /content/feed/
+  convert_to_markdown: true
+```
 
 ### Importing feed
 
