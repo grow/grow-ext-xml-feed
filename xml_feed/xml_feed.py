@@ -298,7 +298,9 @@ class XmlFeedPreprocessHook(hooks.PreprocessHook):
             if article.author:
                 data['author'] = article.author
             if article.authors:
-                data['authors'] = article.authors
+                data['authors'] = []
+                for author in article.authors:
+                    data['authors'].append(dict(author))
             data['image'] = article.image
             data['published'] = article_datetime
             data['link'] = article.link
