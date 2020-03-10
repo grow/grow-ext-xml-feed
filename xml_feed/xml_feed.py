@@ -138,6 +138,7 @@ class XmlFeedPreprocessHook(hooks.PreprocessHook):
         raw_meta = parts[1]
 
         meta_search = RE_DATA_FORMAT.finditer(raw_meta)
+        final_meta_add = meta
         if meta_search:
             for result in meta_search:
                 final_meta_add = cls._deep_object(meta, result.group(1), result.group(2).strip())
