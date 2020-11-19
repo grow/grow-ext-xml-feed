@@ -47,7 +47,7 @@ class Options(object):
 
     def _parse_config(self, config):
         if 'field_aliases' in config:
-            for alias, field in config['field_aliases'].iteritems():
+            for alias, field in config['field_aliases'].items():
                 self.alias_field(field, alias)
 
     def alias_field(self, field, alias):
@@ -152,7 +152,7 @@ class XmlFeedPreprocessHook(hooks.PreprocessHook):
         options = Options(config)
 
         sanitized_config = dict(
-            (k,v) for k,v in config.iteritems()
+            (k,v) for k,v in config.items()
             if k not in CONFIG_FIELDS_TO_REMOVE)
         config_message = self.parse_config(sanitized_config)
 
