@@ -102,24 +102,24 @@ class XmlFeedPreprocessHook(hooks.PreprocessHook):
 
             for child in item:
                 if child.tag == CONTENT_KEYS.title:
-                    article.title = child.text.encode('utf8')
+                    article.title = child.text
                 elif child.tag == CONTENT_KEYS.description:
-                    article.description = child.text.encode('utf8')
-                    article.content = child.text.encode('utf8')
+                    article.description = child.text
+                    article.content = child.text
                 elif child.tag == CONTENT_KEYS.link:
-                    article.link = child.text.encode('utf8')
+                    article.link = child.text
                 elif child.tag == CONTENT_KEYS.published:
-                    raw_date = child.text.encode('utf8')
+                    raw_date = child.text
                     article.published = parse(raw_date)
                 elif child.tag == CONTENT_KEYS.content_encoded:
-                    article.content = child.text.encode('utf8')
+                    article.content = child.text
                 elif child.text:
-                    article.fields[child.tag] = child.text.encode('utf8')
+                    article.fields[child.tag] = child.text
 
                 # Handle aliases, in addition to established defaults
                 # Handled after defaults to allow for overrides
                 for alias in options.get_aliases(child.tag):
-                    article.fields[alias] = child.text.encode('utf8')
+                    article.fields[alias] = child.text
 
             if article.title:
                 slug = utils.slugify(article.title)
