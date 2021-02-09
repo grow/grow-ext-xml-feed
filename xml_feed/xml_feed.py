@@ -151,10 +151,10 @@ class XmlFeedPreprocessHook(hooks.PreprocessHook):
 
         for entry in feed.entries:
             article = Article()
-            article.title = entry.title.encode('utf-8')
+            article.title = entry.title
             if entry.summary != entry.content[0].value:
-                article.description = entry.summary.encode('utf-8')
-            article.content = entry.content[0].value.encode('utf-8')
+                article.description = entry.summary
+            article.content = entry.content[0].value
             article.link = entry.link
             article.published = entry.published_parsed
             article.author = entry.author
@@ -186,10 +186,9 @@ class XmlFeedPreprocessHook(hooks.PreprocessHook):
 
                 if convert_to_markdown:
                     article.content = cls._cleanup_content(
-                        html2text.html2text(pretty_content).encode('utf-8'))
+                        html2text.html2text(pretty_content))
                 else:
-                    article.content = cls._cleanup_content(
-                        pretty_content.encode('utf-8'))
+                    article.content = cls._cleanup_content(pretty_content)
 
             if not article.description:
                 article.description = article.title
@@ -202,10 +201,10 @@ class XmlFeedPreprocessHook(hooks.PreprocessHook):
 
         for entry in feed.entries:
             article = Article()
-            article.title = entry.title.encode('utf-8')
+            article.title = entry.title
             if entry.summary != entry.content[0].value:
-                article.description = entry.summary.encode('utf-8')
-            article.content = entry.summary.encode('utf-8')
+                article.description = entry.summary
+            article.content = entry.summary
             article.link = entry.link
             article.published = entry.published_parsed
             article.author = entry.author
@@ -233,10 +232,10 @@ class XmlFeedPreprocessHook(hooks.PreprocessHook):
                 pretty_content = soup_article_content.prettify()
                 if convert_to_markdown:
                     article.content = cls._cleanup_content(
-                        html2text.html2text(pretty_content).encode('utf-8'))
+                        html2text.html2text(pretty_content))
                 else:
                     article.content = cls._cleanup_content(
-                        pretty_content.encode('utf-8'))
+                        pretty_content)
                 soup_article_image = soup_article_content.find('img')
 
                 if soup_article_image:
