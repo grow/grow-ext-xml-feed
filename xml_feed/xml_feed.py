@@ -54,7 +54,7 @@ class Options(object):
 
     def _parse_config(self, config):
         if 'field_aliases' in config:
-            for alias, field in config['field_aliases'].iteritems():
+            for alias, field in config['field_aliases'].items():
                 self.alias_field(field, alias)
 
     def alias_field(self, field, alias):
@@ -273,7 +273,7 @@ class XmlFeedPreprocessHook(hooks.PreprocessHook):
 
         # Can't handle the custom parts of the config.
         sanitized_config = dict(
-            (k, v) for k, v in config.iteritems() if k not in CONFIG_FIELDS_TO_REMOVE)
+            (k, v) for k, v in config.items() if k not in CONFIG_FIELDS_TO_REMOVE)
         config = self.parse_config(sanitized_config)
 
         for article in self._parse_feed(
@@ -307,7 +307,7 @@ class XmlFeedPreprocessHook(hooks.PreprocessHook):
 
             article.content, meta = self._extract_meta(article.content)
 
-            for key, value in meta.iteritems():
+            for key, value in meta.items():
                 data[key] = value
 
             raw_front_matter = yaml.dump(
